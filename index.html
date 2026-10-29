@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Quantum Vector CPU Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Orbitron:wght@500;700;900&display=swap');
+
+        * {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #020617;
+            color: #f8fafc;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Glassmorphism Mobile Panels */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+
+        .glass-sheet {
+            background: rgba(10, 15, 30, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-t: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        /* Glowing text effects */
+        .glow-emerald {
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+        }
+        .glow-orange {
+            text-shadow: 0 0 10px rgba(249, 115, 22, 0.7);
+        }
+        .glow-cyan {
+            text-shadow: 0 0 10px rgba(6, 182, 212, 0.7);
+        }
+
+        /* Mobile Range Slider styling - Extra large touch targets */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 9999px;
+            height: 12px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 28px;
+            width: 28px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            box-shadow: 0 0 12px #38bdf8;
+            border: 3px solid #0f172a;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #38bdf8;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen relative bg-slate-950 flex flex-col justify-between overflow-hidden">
+
+    <!-- TOP MOBILE HEADER -->
+    <header class="absolute top-0 left-0 right-0 z-30 px-3 py-2.5 flex items-center justify-between glass-card border-b border-cyan-500/30">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-400/50 flex items-center justify-center text-cyan-400 shrink-0">
+                <i data-lucide="cpu" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="font-orbitron text-xs font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-indigo-300 to-purple-400 leading-none">
+                    QUANTUM VECTOR CPU
+                </h1>
+                <p class="text-[9px] text-slate-400 font-mono tracking-tighter mt-0.5">Triangular Superconducting Lattice</p>
+            </div>
+        </div>
+
+        <!-- Touch Quick Metric Badges -->
+        <div class="flex items-center space-x-1.5">
+            <button id="btn-open-speed" class="px-2 py-1 rounded-md bg-emerald-950/80 border border-emerald-500/50 text-emerald-400 flex items-center space-x-1 active:scale-95 transition">
+                <i data-lucide="zap" class="w-3.5 h-3.5 text-emerald-400 animate-pulse"></i>
+                <div class="text-right leading-none">
+                    <span class="block text-[7px] text-emerald-300/70 font-mono">SPEED</span>
+                    <span id="badge-speed" class="font-orbitron text-[10px] font-bold glow-emerald">1,420 TB/s</span>
+                </div>
+            </button>
+
+            <button id="btn-open-heat" class="px-2 py-1 rounded-md bg-orange-950/80 border border-orange-500/50 text-orange-400 flex items-center space-x-1 active:scale-95 transition">
+                <i data-lucide="flame" class="w-3.5 h-3.5 text-orange-400 animate-pulse"></i>
+                <div class="text-right leading-none">
+                    <span class="block text-[7px] text-orange-300/70 font-mono">HEAT</span>
+                    <span id="badge-heat" class="font-orbitron text-[10px] font-bold glow-orange">-458.1 °F</span>
+                </div>
+            </button>
+        </div>
+    </header>
+
+    <!-- LIVE TOUCH CANVAS SIMULATOR -->
+    <main class="relative w-full h-full flex-grow overflow-hidden">
+        <canvas id="simCanvas" class="w-full h-full block touch-none cursor-pointer"></canvas>
+
+        <!-- FLOATING TOUCH INSTRUCTION BADGE -->
+        <div class="absolute top-16 left-1/2 -translate-x-1/2 pointer-events-none bg-slate-900/80 border border-cyan-500/30 px-3 py-1 rounded-full text-[10px] text-cyan-300 font-mono flex items-center gap-1.5 backdrop-blur">
+            <i data-lucide="touch-pad" class="w-3.5 h-3.5 animate-bounce text-cyan-400"></i> Tap or Drag on lattice to launch vectors
+        </div>
+
+        <!-- COMPACT MOBILE SQUID HUD (READOUT AT BOTTOM ABOVE NAV) -->
+        <div class="absolute bottom-16 left-3 right-3 z-20 glass-card rounded-xl p-2.5 border border-purple-500/30 shadow-2xl">
+            <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center space-x-1.5 text-purple-400">
+                    <i data-lucide="radio" class="w-3.5 h-3.5 animate-spin" style="animation-duration: 5s;"></i>
+                    <span class="font-orbitron text-[10px] font-bold tracking-wider">SQUID SENSOR (NON-CONTACT)</span>
+                </div>
+                <span id="hud-node-id" class="text-[9px] font-mono text-cyan-300 bg-slate-900 px-1.5 py-0.5 rounded border border-cyan-500/30">Qubit #42</span>
+            </div>
+
+            <div class="grid grid-cols-3 gap-1 text-[9px] mb-1.5 font-mono">
+                <div class="bg-slate-950/80 p-1 rounded border border-slate-800">
+                    <span class="text-slate-400 block text-[7px]">SUPERPOSITION</span>
+                    <span id="hud-state" class="text-purple-300 font-bold">0.71|0⟩+0.71|1⟩</span>
+                </div>
+                <div class="bg-slate-950/80 p-1 rounded border border-slate-800">
+                    <span class="text-slate-400 block text-[7px]">SUPERCURRENT</span>
+                    <span id="hud-current" class="text-emerald-300 font-bold">18.4 µA</span>
+                </div>
+                <div class="bg-slate-950/80 p-1 rounded border border-slate-800">
+                    <span class="text-slate-400 block text-[7px]">PRELOAD VECTOR</span>
+                    <span id="hud-vector" class="text-amber-300 font-bold">142° (98%)</span>
+                </div>
+            </div>
+
+            <!-- OSCILLOSCOPE READOUT CANVAS -->
+            <div class="relative bg-slate-950 rounded border border-purple-900/50 overflow-hidden h-7">
+                <canvas id="scopeCanvas" width="300" height="28" class="w-full h-full block"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- FIXED MOBILE BOTTOM ACTION BAR -->
+    <nav class="fixed bottom-0 left-0 right-0 z-30 glass-card border-t border-cyan-500/30 px-3 py-2 flex items-center justify-around">
+        <button id="btn-trigger-pulse" class="flex-1 max-w-[140px] py-2 px-3 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 active:from-cyan-400 active:to-blue-500 text-slate-950 font-orbitron text-xs font-black flex items-center justify-center gap-1.5 shadow-lg shadow-cyan-500/20 active:scale-95 transition">
+            <i data-lucide="zap" class="w-4 h-4 fill-slate-950"></i> PULSE
+        </button>
+
+        <button id="btn-open-settings" class="flex items-center space-x-1.5 py-2 px-4 rounded-lg bg-slate-800 border border-slate-600 text-cyan-300 active:bg-slate-700 active:scale-95 transition font-orbitron text-xs font-bold">
+            <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+            <span>CONTROLS ⚙️</span>
+        </button>
+    </nav>
+
+    <!-- SLIDE-UP MOBILE BOTTOM SHEET (SETTINGS & SLIDERS) -->
+    <div id="sheet-settings" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex flex-col justify-end transition-all">
+        <div class="glass-sheet rounded-t-2xl p-4 space-y-4 max-h-[85vh] overflow-y-auto border-t border-cyan-400/40 shadow-2xl">
+            <!-- Sheet Header -->
+            <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></div>
+                    <h2 class="font-orbitron text-sm font-bold text-cyan-300 tracking-wider">VECTOR HARDWARE CONTROLS</h2>
+                </div>
+                <button id="btn-close-settings" class="p-1.5 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-90">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Touch Sliders -->
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span class="text-slate-300 font-medium">Supercurrent Clock (GHz)</span>
+                        <span id="txt-elec-freq" class="font-mono text-purple-400 font-bold text-sm">15.0 GHz</span>
+                    </div>
+                    <input type="range" id="slider-elec-freq" min="10" max="25" step="0.5" value="15" class="w-full">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span class="text-slate-300 font-medium">Photonic Optical Frequency (THz)</span>
+                        <span id="txt-photo-freq" class="font-mono text-cyan-400 font-bold text-sm">195 THz</span>
+                    </div>
+                    <input type="range" id="slider-photo-freq" min="180" max="220" step="1" value="195" class="w-full">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span class="text-slate-300 font-medium">Substrate Temp (Decoherence)</span>
+                        <span id="txt-temp" class="font-mono text-emerald-400 font-bold text-sm">12 mK</span>
+                    </div>
+                    <input type="range" id="slider-temp" min="0" max="300" step="1" value="12" class="w-full">
+                    <div class="flex justify-between text-[9px] text-slate-400 mt-1">
+                        <span>0mK (Cryogenic)</span>
+                        <span>300K (Room Temp Target)</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span class="text-slate-300 font-medium">Lattice Qubit Density</span>
+                        <span id="txt-density" class="font-mono text-slate-300 font-bold">Medium</span>
+                    </div>
+                    <input type="range" id="slider-density" min="25" max="55" step="5" value="40" class="w-full">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span class="text-slate-300 font-medium">Vector Wave Animation Speed</span>
+                        <span id="txt-speed" class="font-mono text-cyan-300 font-bold">1.0x</span>
+                    </div>
+                    <input type="range" id="slider-speed" min="0.2" max="2.5" step="0.1" value="1.0" class="w-full">
+                </div>
+            </div>
+
+            <!-- Toggles -->
+            <div class="pt-2 border-t border-slate-800 space-y-2 text-xs">
+                <span class="text-[10px] font-orbitron text-slate-400 tracking-wider block">ARCHITECTURAL VISUAL LAYERS</span>
+
+                <label class="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                    <span class="flex items-center gap-2 text-slate-200"><i data-lucide="navigation" class="w-4 h-4 text-amber-400"></i> Predictive Preload Vectors</span>
+                    <input type="checkbox" id="chk-preload" checked class="w-5 h-5 accent-cyan-500 rounded">
+                </label>
+
+                <label class="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                    <span class="flex items-center gap-2 text-slate-200"><i data-lucide="grid" class="w-4 h-4 text-emerald-400"></i> Andreev Corner Nodes</span>
+                    <input type="checkbox" id="chk-andreev" checked class="w-5 h-5 accent-cyan-500 rounded">
+                </label>
+
+                <label class="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                    <span class="flex items-center gap-2 text-slate-200"><i data-lucide="gem" class="w-4 h-4 text-blue-400"></i> Synthetic Diamond Matrix</span>
+                    <input type="checkbox" id="chk-diamond" checked class="w-5 h-5 accent-cyan-500 rounded">
+                </label>
+            </div>
+
+            <button id="btn-reset" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs rounded-xl border border-slate-700 transition">
+                Reset All Parameters
+            </button>
+        </div>
+    </div>
+
+    <!-- SPEED (THROUGHPUT) MODAL -->
+    <div id="modal-speed" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-card rounded-2xl border border-emerald-500/40 w-full max-w-sm p-4 space-y-3 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-emerald-500/30 pb-2">
+                <div class="flex items-center space-x-2 text-emerald-400">
+                    <i data-lucide="zap" class="w-5 h-5"></i>
+                    <h3 class="font-orbitron text-xs font-bold tracking-wider">POTENTIAL SPEED CALCULATOR</h3>
+                </div>
+                <button id="btn-close-speed" class="p-1 text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 font-mono text-[10px] space-y-1">
+                <span class="text-slate-400 block uppercase tracking-widest text-[8px]">Theoretical Formula</span>
+                <p class="text-emerald-300 bg-slate-900 p-1.5 rounded overflow-x-auto">
+                    TB/s = [ (N<sub>qubits</sub> × f<sub>super</sub> × 64) + (N<sub>channels</sub> × f<sub>optical</sub>) ] / 8×10<sup>12</sup>
+                </p>
+            </div>
+
+            <div class="space-y-1.5 text-xs font-mono">
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Active Qubits (N):</span>
+                    <span id="m-speed-qubits" class="text-cyan-300">192 Qubits</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Supercurrent Base Clock:</span>
+                    <span id="m-speed-clock" class="text-purple-300">15.0 GHz</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Photonic Light-Band:</span>
+                    <span id="m-speed-optical" class="text-cyan-400">195 THz</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Lattice Topology:</span>
+                    <span class="text-emerald-400">Triangular (Degree = 6)</span>
+                </div>
+            </div>
+
+            <div class="p-3 bg-emerald-950/60 rounded-xl border border-emerald-500/40 text-center">
+                <span class="text-[9px] text-emerald-300/80 font-mono block">PROJECTED TOTAL THROUGHPUT</span>
+                <span id="m-speed-total" class="font-orbitron text-2xl font-black text-emerald-400 glow-emerald">1,420 TB/s</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- HEAT OUTPUT MODAL -->
+    <div id="modal-heat" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-card rounded-2xl border border-orange-500/40 w-full max-w-sm p-4 space-y-3 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-orange-500/30 pb-2">
+                <div class="flex items-center space-x-2 text-orange-400">
+                    <i data-lucide="flame" class="w-5 h-5"></i>
+                    <h3 class="font-orbitron text-xs font-bold tracking-wider">PROJECTED HEAT CALCULATOR</h3>
+                </div>
+                <button id="btn-close-heat" class="p-1 text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 font-mono text-[10px] space-y-1">
+                <span class="text-slate-400 block uppercase tracking-widest text-[8px]">Thermal Dissipation Formula</span>
+                <p class="text-orange-300 bg-slate-900 p-1.5 rounded overflow-x-auto">
+                    P<sub>watts</sub> = [ N<sub>qubits</sub> × (I<sub>super</sub>²R + E<sub>optical</sub>f) ] / Diamond<sub>κ</sub>
+                </p>
+            </div>
+
+            <div class="space-y-1.5 text-xs font-mono">
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Operating Temperature (°F):</span>
+                    <span id="m-heat-f" class="text-orange-400 font-bold">-459.64 °F</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Substrate Temp (mK / K):</span>
+                    <span id="m-heat-k" class="text-cyan-300">12.00 mK</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Power Dissipation (Watts):</span>
+                    <span id="m-heat-w" class="text-amber-300 font-bold">1.45 W</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Diamond Thermal Sink (κ):</span>
+                    <span id="m-heat-diamond" class="text-blue-300">2200 W/(m·K)</span>
+                </div>
+            </div>
+
+            <div class="p-3 bg-orange-950/60 rounded-xl border border-orange-500/40 text-center">
+                <span class="text-[9px] text-orange-300/80 font-mono block">CHIP OPERATING TEMPERATURE</span>
+                <span id="m-heat-total-f" class="font-orbitron text-2xl font-black text-orange-400 glow-orange">-458.1 °F</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT SIMULATION LOGIC -->
+    <script>
+        lucide.createIcons();
+
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const scopeCanvas = document.getElementById('scopeCanvas');
+        const scopeCtx = scopeCanvas.getContext('2d');
+
+        // State parameters
+        const state = {
+            speed: 1.0,
+            elecGhz: 15.0,
+            photoThz: 195,
+            temperature: 12, // in mK
+            spacing: 40,
+            showPreload: true,
+            showAndreev: true,
+            showDiamond: true
+        };
+
+        let nodes = [];
+        let pulses = [];
+        let touchNode = null;
+        let time = 0;
+        let lastTime = performance.now();
+        let scopeBuffer = new Array(60).fill(0);
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            buildLattice();
+        }
+
+        function buildLattice() {
+            nodes = [];
+            const spacing = state.spacing;
+            const rowHeight = spacing * Math.sin(Math.PI / 3);
+            const cols = Math.ceil(canvas.width / spacing) + 2;
+            const rows = Math.ceil(canvas.height / rowHeight) + 2;
+
+            let id = 0;
+            const grid = {};
+
+            for (let r = -1; r < rows; r++) {
+                const y = r * rowHeight;
+                const xOffset = (r % 2 !== 0) ? spacing / 2 : 0;
+                for (let c = -1; c < cols; c++) {
+                    const x = c * spacing + xOffset;
+                    const node = {
+                        id: id++,
+                        x: x, y: y, baseX: x, baseY: y,
+                        elecVal: 0, photoVal: 0, amp: 0,
+                        phi: Math.random() * Math.PI * 2,
+                        neighbors: []
+                    };
+                    nodes.push(node);
+                    grid[`${r},${c}`] = node;
+                }
+            }
+
+            // Connect triangular lattice neighbors
+            nodes.forEach(node => {
+                nodes.forEach(other => {
+                    if (node !== other) {
+                        const dist = Math.hypot(node.baseX - other.baseX, node.baseY - other.baseY);
+                        if (dist < spacing * 1.25) {
+                            node.neighbors.push(other);
+                        }
+                    }
+                });
+            });
+
+            calculateMetrics();
+        }
+
+        function calculateMetrics() {
+            const nQubits = nodes.length;
+            const thermalCoherence = Math.max(0.05, 1 - (state.temperature / 300) * 0.95);
+
+            // Speed in TB/s
+            const elecTB = (nQubits * (state.elecGhz * 1e9) * 64) / 8e12;
+            const photoTB = (nQubits * (state.photoThz * 1e12) * 0.04) / 8e12;
+            const totalTB = Math.round((elecTB + photoTB) * thermalCoherence);
+            const formattedSpeed = totalTB >= 1000 ? `${(totalTB/1000).toFixed(2)} PB/s` : `${totalTB.toLocaleString()} TB/s`;
+
+            document.getElementById('badge-speed').innerText = formattedSpeed;
+            document.getElementById('m-speed-total').innerText = formattedSpeed;
+            document.getElementById('m-speed-qubits').innerText = `${nQubits} Qubits`;
+            document.getElementById('m-speed-clock').innerText = `${state.elecGhz.toFixed(1)} GHz`;
+            document.getElementById('m-speed-optical').innerText = `${state.photoThz} THz`;
+
+            // Heat in °F and Watts
+            const tempK = state.temperature / 1000;
+            const tempF = ((tempK - 273.15) * 9/5) + 32;
+            const cond = state.showDiamond ? 2200 : 400;
+            const powerW = (nQubits * (state.elecGhz * 0.005) + (state.photoThz * 0.002)) / (cond / 1000);
+            const formattedHeat = `${tempF.toFixed(1)} °F`;
+
+            document.getElementById('badge-heat').innerText = formattedHeat;
+            document.getElementById('m-heat-total-f').innerText = formattedHeat;
+            document.getElementById('m-heat-f').innerText = `${tempF.toFixed(2)} °F`;
+            document.getElementById('m-heat-k').innerText = `${state.temperature} mK (${tempK.toFixed(3)} K)`;
+            document.getElementById('m-heat-w').innerText = `${powerW.toFixed(2)} W`;
+            document.getElementById('m-heat-diamond').innerText = state.showDiamond ? '2200 W/(m·K) [Diamond]' : '400 W/(m·K) [Std Silicon]';
+        }
+
+        function triggerPulse(x = canvas.width / 2, y = canvas.height / 2) {
+            pulses.push({
+                x: x, y: y,
+                radius: 0,
+                maxRadius: Math.max(canvas.width, canvas.height) * 1.2,
+                speed: 400 * state.speed,
+                intensity: 1.0
+            });
+        }
+
+        function update(dt) {
+            time += dt * state.speed;
+
+            for (let i = pulses.length - 1; i >= 0; i--) {
+                const p = pulses[i];
+                p.radius += p.speed * dt;
+                p.intensity -= 0.3 * dt;
+                if (p.radius > p.maxRadius || p.intensity <= 0) pulses.splice(i, 1);
+            }
+
+            const jitter = (state.temperature / 300) * 3;
+
+            nodes.forEach(node => {
+                const waveE = Math.sin(node.x * 0.02 + time * (state.elecGhz * 0.1));
+                const waveP = Math.cos((node.x + node.y) * 0.015 - time * (state.photoThz * 0.01));
+
+                let pulseAdd = 0;
+                pulses.forEach(p => {
+                    const d = Math.hypot(node.x - p.x, node.y - p.y);
+                    const waveDist = Math.abs(d - p.radius);
+                    if (waveDist < 80) pulseAdd += Math.cos((waveDist / 80) * Math.PI) * p.intensity * 2.0;
+                });
+
+                node.x = node.baseX + (Math.random() - 0.5) * jitter;
+                node.y = node.baseY + (Math.random() - 0.5) * jitter;
+                node.elecVal = waveE + pulseAdd * 0.8;
+                node.photoVal = waveP + pulseAdd * 0.6;
+                node.amp = Math.abs(node.elecVal) + Math.abs(node.photoVal);
+                node.phi = (time * 3 + node.photoVal * Math.PI) % (Math.PI * 2);
+            });
+
+            // Update SQUID HUD
+            const activeNode = touchNode || nodes[Math.floor(nodes.length / 2)];
+            if (activeNode) {
+                document.getElementById('hud-node-id').innerText = `Qubit #${activeNode.id}`;
+                document.getElementById('hud-current').innerText = `${(Math.abs(activeNode.elecVal) * 20 + 2).toFixed(1)} µA`;
+                document.getElementById('hud-vector').innerText = `${Math.round((activeNode.phi * 180 / Math.PI) % 360)}°`;
+
+                const signal = (activeNode.elecVal * Math.sin(time * 12) + activeNode.photoVal * Math.cos(time * 15));
+                scopeBuffer.push(signal);
+                if (scopeBuffer.length > 60) scopeBuffer.shift();
+            }
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Diamond lattice background grid
+            if (state.showDiamond) {
+                ctx.strokeStyle = 'rgba(30, 58, 138, 0.12)';
+                ctx.lineWidth = 1;
+                const dSize = 50;
+                for (let x = 0; x < canvas.width + dSize; x += dSize) {
+                    for (let y = 0; y < canvas.height + dSize; y += dSize) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y - dSize / 2); ctx.lineTo(x + dSize / 2, y);
+                        ctx.lineTo(x, y + dSize / 2); ctx.lineTo(x - dSize / 2, y);
+                        ctx.closePath(); ctx.stroke();
+                    }
+                }
+            }
+
+            // Edges
+            nodes.forEach(node => {
+                node.neighbors.forEach(nbr => {
+                    if (node.id < nbr.id) {
+                        const avgE = (node.elecVal + nbr.elecVal) * 0.5;
+                        const avgP = (node.photoVal + nbr.photoVal) * 0.5;
+
+                        if (Math.abs(avgE) > 0.1) {
+                            ctx.beginPath();
+                            ctx.moveTo(node.x, node.y); ctx.lineTo(nbr.x, nbr.y);
+                            ctx.strokeStyle = `rgba(168, 85, 247, ${Math.min(0.8, Math.abs(avgE) * 0.4)})`;
+                            ctx.lineWidth = 1 + Math.abs(avgE) * 1.5;
+                            ctx.stroke();
+                        }
+                        if (Math.abs(avgP) > 0.1) {
+                            ctx.beginPath();
+                            ctx.moveTo(node.x, node.y); ctx.lineTo(nbr.x, nbr.y);
+                            ctx.strokeStyle = `rgba(34, 211, 238, ${Math.min(0.8, Math.abs(avgP) * 0.4)})`;
+                            ctx.lineWidth = 1; ctx.setLineDash([2, 2]); ctx.stroke(); ctx.setLineDash([]);
+                        }
+                    }
+                });
+            });
+
+            // Predictive Vectors
+            if (state.showPreload) {
+                nodes.forEach(node => {
+                    if (node.amp > 1.0) {
+                        const len = 12 * Math.min(1.3, node.amp);
+                        ctx.beginPath();
+                        ctx.moveTo(node.x, node.y);
+                        ctx.lineTo(node.x + Math.cos(node.phi) * len, node.y + Math.sin(node.phi) * len);
+                        ctx.strokeStyle = 'rgba(251, 191, 36, 0.8)';
+                        ctx.lineWidth = 1.2;
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            // Andreev Junction Nodes
+            nodes.forEach(node => {
+                const intensity = Math.min(1, node.amp);
+                if (state.showAndreev) {
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, 3 + intensity * 3, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(16, 185, 129, ${0.1 + intensity * 0.3})`;
+                    ctx.fill();
+                }
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = intensity > 0.8 ? '#f43f5e' : (node.elecVal > node.photoVal ? '#c084fc' : '#38bdf8');
+                ctx.fill();
+            });
+
+            // Wave Pulses
+            pulses.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(56, 189, 248, ${p.intensity * 0.7})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // SQUID Scope Canvas Render
+            const sw = scopeCanvas.width;
+            const sh = scopeCanvas.height;
+            scopeCtx.clearRect(0, 0, sw, sh);
+            scopeCtx.beginPath();
+            scopeCtx.strokeStyle = '#c084fc';
+            scopeCtx.lineWidth = 1.5;
+            const step = sw / scopeBuffer.length;
+            for (let i = 0; i < scopeBuffer.length; i++) {
+                const x = i * step;
+                const y = sh / 2 - scopeBuffer[i] * (sh * 0.35);
+                if (i === 0) scopeCtx.moveTo(x, y);
+                else scopeCtx.lineTo(x, y);
+            }
+            scopeCtx.stroke();
+        }
+
+        function loop(t) {
+            const dt = Math.min(0.1, (t - lastTime) / 1000);
+            lastTime = t;
+            update(dt);
+            render();
+            requestAnimationFrame(loop);
+        }
+
+        function initInteractions() {
+            window.addEventListener('resize', resizeCanvas);
+
+            // Touch / Drag events on Canvas
+            const handleTouch = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches ? e.touches[0] : e;
+                const tx = touch.clientX - rect.left;
+                const ty = touch.clientY - rect.top;
+
+                triggerPulse(tx, ty);
+
+                let closest = null, minDist = 50;
+                nodes.forEach(n => {
+                    const d = Math.hypot(n.x - tx, n.y - ty);
+                    if (d < minDist) { minDist = d; closest = n; }
+                });
+                touchNode = closest;
+            };
+
+            canvas.addEventListener('touchstart', (e) => handleTouch(e), { passive: true });
+            canvas.addEventListener('click', (e) => handleTouch(e));
+
+            // Bottom sheet drawer toggles
+            const settingsSheet = document.getElementById('sheet-settings');
+            document.getElementById('btn-open-settings').addEventListener('click', () => settingsSheet.classList.remove('hidden'));
+            document.getElementById('btn-close-settings').addEventListener('click', () => settingsSheet.classList.add('hidden'));
+
+            // Speed & Heat Modal toggles
+            const modalSpeed = document.getElementById('modal-speed');
+            const modalHeat = document.getElementById('modal-heat');
+            document.getElementById('btn-open-speed').addEventListener('click', () => modalSpeed.classList.remove('hidden'));
+            document.getElementById('btn-close-speed').addEventListener('click', () => modalSpeed.classList.add('hidden'));
+            document.getElementById('btn-open-heat').addEventListener('click', () => modalHeat.classList.remove('hidden'));
+            document.getElementById('btn-close-heat').addEventListener('click', () => modalHeat.classList.add('hidden'));
+
+            // Trigger Pulse Button
+            document.getElementById('btn-trigger-pulse').addEventListener('click', () => {
+                triggerPulse(canvas.width / 2, canvas.height / 2);
+            });
+
+            // Sliders bindings
+            document.getElementById('slider-elec-freq').addEventListener('input', (e) => {
+                state.elecGhz = parseFloat(e.target.value);
+                document.getElementById('txt-elec-freq').innerText = `${state.elecGhz.toFixed(1)} GHz`;
+                calculateMetrics();
+            });
+
+            document.getElementById('slider-photo-freq').addEventListener('input', (e) => {
+                state.photoThz = parseInt(e.target.value);
+                document.getElementById('txt-photo-freq').innerText = `${state.photoThz} THz`;
+                calculateMetrics();
+            });
+
+            document.getElementById('slider-temp').addEventListener('input', (e) => {
+                state.temperature = parseInt(e.target.value);
+                document.getElementById('txt-temp').innerText = state.temperature >= 1000 ? 
+                    `${(state.temperature/1000).toFixed(1)} K` : `${state.temperature} mK`;
+                calculateMetrics();
+            });
+
+            document.getElementById('slider-density').addEventListener('input', (e) => {
+                state.spacing = parseInt(e.target.value);
+                const names = { 25: 'High', 30: 'Dense', 35: 'Med-High', 40: 'Medium', 45: 'Coarse', 50: 'Sparse', 55: 'Low' };
+                document.getElementById('txt-density').innerText = names[state.spacing] || 'Custom';
+                buildLattice();
+            });
+
+            document.getElementById('slider-speed').addEventListener('input', (e) => {
+                state.speed = parseFloat(e.target.value);
+                document.getElementById('txt-speed').innerText = `${state.speed.toFixed(1)}x`;
+            });
+
+            // Toggles
+            document.getElementById('chk-preload').addEventListener('change', (e) => state.showPreload = e.target.checked);
+            document.getElementById('chk-andreev').addEventListener('change', (e) => state.showAndreev = e.target.checked);
+            document.getElementById('chk-diamond').addEventListener('change', (e) => {
+                state.showDiamond = e.target.checked;
+                calculateMetrics();
+            });
+
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                state.speed = 1.0; state.elecGhz = 15.0; state.photoThz = 195; state.temperature = 12; state.spacing = 40;
+                document.getElementById('slider-elec-freq').value = 15;
+                document.getElementById('txt-elec-freq').innerText = '15.0 GHz';
+                document.getElementById('slider-photo-freq').value = 195;
+                document.getElementById('txt-photo-freq').innerText = '195 THz';
+                document.getElementById('slider-temp').value = 12;
+                document.getElementById('txt-temp').innerText = '12 mK';
+                document.getElementById('slider-density').value = 40;
+                document.getElementById('txt-density').innerText = 'Medium';
+                document.getElementById('slider-speed').value = 1.0;
+                document.getElementById('txt-speed').innerText = '1.0x';
+                buildLattice();
+            });
+        }
+
+        window.onload = function () {
+            resizeCanvas();
+            initInteractions();
+            triggerPulse(canvas.width * 0.4, canvas.height * 0.4);
+            requestAnimationFrame(loop);
+        };
+    </script>
+</body>
+</html>
